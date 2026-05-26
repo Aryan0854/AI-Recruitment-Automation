@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Extract details (Structured OpenAI prompt with dynamic regex fallback)
-      const jdDetails = await extractJdDetails(rawText);
+      const jdDetails = await extractJdDetails(rawText, filename);
 
       // Determine template cell and new row indices
       const templateRowIndex = lastDataRow >= 2 ? lastDataRow : 2;
