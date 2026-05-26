@@ -40,6 +40,8 @@ Auto/
 │   ├── src/
 │   │   ├── app/
 │   │   │   ├── api/          # Serverless REST API Routes
+│   │   │   │   ├── upload-process/
+│   │   │   │   │   └── route.ts # Unified JD-to-Excel Stream Endpoint
 │   │   │   │   ├── jobs/
 │   │   │   │   │   ├── route.ts # List JDs & Handle Uploads
 │   │   │   │   │   ├── [id]/route.ts # Edit & Delete JDs
