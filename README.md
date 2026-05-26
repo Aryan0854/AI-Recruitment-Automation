@@ -116,3 +116,6 @@ Our mapping engine automatically binds the parsed job JSON fields into the exact
 - `Date Approved`: Automatically inserts current local date.
 - `ST (Bill Rate)`: Sets billing numeric rate (e.g. `5.5`).
 - Cell formatting, fonts, and thin borders are dynamically copied cell-by-cell from the template rows!
+
+---
+*Deployed serverless-ready in the cloud on Vercel.*
