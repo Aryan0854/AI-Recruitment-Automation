@@ -14,6 +14,17 @@ export async function POST(req: NextRequest) {
     const jdsFiles = formData.getAll('jds') as File[];
     const templateFile = formData.get('template') as File;
 
+    // Read optional custom per-JD starting IDs mapping
+    const mappingStr = formData.get('jdReqIdsMapping') as string || '{}';
+    let jdReqIdsMapping: { [filename: string]: string } = {};
+    try {
+      jdReqIdsMapping = JSON.parse(mappingStr);
+      console.log('[Serverless API] Custom per-JD mapping payload loaded successfully:', jdReqIdsMapping);
+    } catch (e) {
+      console.error('[Serverless API] Failed to parse custom per-JD mapping payload, using default.');
+    }
+    let currentReqIdNum: number | null = null;
+
     if (!jdsFiles || jdsFiles.length === 0) {
       return NextResponse.json({ detail: 'Missing Job Description files (.jds)' }, { status: 400 });
     }
@@ -103,23 +114,39 @@ export async function POST(req: NextRequest) {
 
       // Calculate sequential requirement ID auto-increment
       let newAutoReqId = '';
-      try {
-        const idIndex = headers.indexOf('Auto req ID');
-        if (idIndex !== -1) {
-          const lastIdVal = templateRow.getCell(idIndex).value;
-          if (lastIdVal && typeof lastIdVal === 'string' && lastIdVal.endsWith('BR')) {
-            const numPart = parseInt(lastIdVal.replace('BR', ''), 10);
-            if (!isNaN(numPart)) {
-              newAutoReqId = `${numPart + 1}BR`;
+      const customIdForThisFile = jdReqIdsMapping[filename] || '';
+      
+      if (customIdForThisFile && /^\d{5}$/.test(customIdForThisFile)) {
+        const parsedCustom = parseInt(customIdForThisFile, 10);
+        newAutoReqId = `${parsedCustom}BR`;
+        console.log(`[Serverless API] Using file-specific custom Auto Req ID: ${newAutoReqId}`);
+        // Seed the sequence for any subsequent empty fields
+        currentReqIdNum = parsedCustom + 1;
+      } else if (currentReqIdNum !== null) {
+        newAutoReqId = `${currentReqIdNum}BR`;
+        currentReqIdNum++; // Increment for subsequent JDs in the batch
+      } else {
+        try {
+          const idIndex = headers.indexOf('Auto req ID');
+          if (idIndex !== -1) {
+            const lastIdVal = templateRow.getCell(idIndex).value;
+            if (lastIdVal && typeof lastIdVal === 'string' && lastIdVal.endsWith('BR')) {
+              const numPart = parseInt(lastIdVal.replace('BR', ''), 10);
+              if (!isNaN(numPart)) {
+                newAutoReqId = `${numPart + 1}BR`;
+                // Initialize the counter so subsequent JDs conjoin from this point
+                currentReqIdNum = numPart + 2;
+              }
             }
           }
+        } catch (err: any) {
+          console.warn('[Serverless API] Auto Req ID increment failed, falling back to random ID:', err.message);
         }
-      } catch (err: any) {
-        console.warn('[Serverless API] Auto Req ID increment failed, falling back to random ID:', err.message);
-      }
 
-      if (!newAutoReqId) {
-        newAutoReqId = `${Math.floor(40000 + Math.random() * 9999)}BR`;
+        if (!newAutoReqId) {
+          newAutoReqId = `${Math.floor(40000 + Math.random() * 9999)}BR`;
+          currentReqIdNum = parseInt(newAutoReqId.replace('BR', ''), 10) + 1;
+        }
       }
 
       // Conjoin skills list

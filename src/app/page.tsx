@@ -20,6 +20,7 @@ export default function Home() {
   // File States
   const [jdFiles, setJdFiles] = useState<File[]>([]);
   const [excelTemplate, setExcelTemplate] = useState<File | null>(null);
+  const [jdCustomIds, setJdCustomIds] = useState<{ [filename: string]: string }>({});
 
   // Processing States
   const [isProcessing, setIsProcessing] = useState(false);
@@ -57,6 +58,14 @@ export default function Home() {
   };
 
   const removeJdFile = (idx: number) => {
+    const targetFile = jdFiles[idx];
+    if (targetFile) {
+      setJdCustomIds(prev => {
+        const copy = { ...prev };
+        delete copy[targetFile.name];
+        return copy;
+      });
+    }
     setJdFiles(prev => prev.filter((_, i) => i !== idx));
     resetStatus();
   };
@@ -78,6 +87,14 @@ export default function Home() {
     setDownloadUrl(null);
     setErrorMessage(null);
     setProgressText('');
+  };
+
+  const handleJdIdChange = (filename: string, val: string) => {
+    const cleanVal = val.replace(/\D/g, '').slice(0, 5);
+    setJdCustomIds(prev => ({
+      ...prev,
+      [filename]: cleanVal
+    }));
   };
 
   // Submit and process JDs + Excel
@@ -103,6 +120,15 @@ export default function Home() {
     });
     // Append Template Excel with the name 'template'
     formData.append('template', excelTemplate);
+
+    // Conjoin JDs custom IDs mapping
+    const mapping: { [filename: string]: string } = {};
+    jdFiles.forEach(file => {
+      if (jdCustomIds[file.name]) {
+        mapping[file.name] = jdCustomIds[file.name];
+      }
+    });
+    formData.append('jdReqIdsMapping', JSON.stringify(mapping));
 
     try {
       // Small timeout simulate for smooth UI transition
@@ -204,20 +230,38 @@ export default function Home() {
 
           {/* JD files listing */}
           {jdFiles.length > 0 && (
-            <div className="space-y-1.5 max-h-[140px] overflow-y-auto pr-1">
+            <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
               {jdFiles.map((file, idx) => (
-                <div key={idx} className="flex items-center justify-between text-xs bg-slate-950/80 border border-slate-900/60 px-3.5 py-2.5 rounded-xl">
-                  <div className="flex items-center gap-2 truncate text-slate-300 font-medium">
-                    <FileText className="h-4 w-4 text-violet-400 shrink-0" />
-                    <span className="truncate max-w-[400px]">{file.name}</span>
+                <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs bg-slate-950/80 border border-slate-900/60 p-3.5 rounded-xl animate-fadeIn">
+                  <div className="flex items-center gap-2 truncate text-slate-300 font-medium flex-1">
+                    <FileText className="h-4.5 w-4.5 text-violet-400 shrink-0" />
+                    <span className="truncate max-w-[280px]">{file.name}</span>
                     <span className="text-[10px] text-slate-600 font-mono">({(file.size / 1024).toFixed(0)} KB)</span>
                   </div>
-                  <button 
-                    onClick={() => removeJdFile(idx)} 
-                    className="p-1 hover:bg-red-500/10 text-slate-500 hover:text-red-400 rounded-lg cursor-pointer"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
+                  
+                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                    <div className="relative rounded-xl overflow-hidden border border-slate-800 focus-within:border-violet-500/60 bg-slate-900/40 flex items-center pr-2.5 w-[140px]">
+                      <input
+                        type="text"
+                        placeholder="Auto Req ID"
+                        value={jdCustomIds[file.name] || ''}
+                        onChange={(e) => handleJdIdChange(file.name, e.target.value)}
+                        className="w-full bg-transparent px-3 py-1.5 text-[11px] font-mono font-bold text-slate-200 focus:outline-none placeholder-slate-600"
+                      />
+                      {(jdCustomIds[file.name] || '') && (
+                        <span className="text-[9px] font-black text-violet-400 font-mono select-none shrink-0 animate-fadeIn">
+                          BR
+                        </span>
+                      )}
+                    </div>
+                    
+                    <button 
+                      onClick={() => removeJdFile(idx)} 
+                      className="p-1.5 hover:bg-red-500/10 text-slate-500 hover:text-red-400 rounded-lg cursor-pointer transition"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -259,10 +303,15 @@ export default function Home() {
             </div>
 
             {/* Quick cache state indicators */}
-            <div className="bg-slate-950/80 border border-slate-900 rounded-2xl p-4.5 flex flex-col justify-center text-xs space-y-1">
-              <span className="text-slate-500 font-semibold block uppercase text-[9px] tracking-wider">Template Status</span>
-              <span className={`font-bold ${excelTemplate ? 'text-emerald-400' : 'text-amber-500'}`}>
-                {excelTemplate ? 'Ready to Append' : 'Missing File'}
+            <div className="bg-slate-950/80 border border-slate-900 rounded-2xl p-4.5 flex flex-col justify-center text-xs space-y-2">
+              <div>
+                <span className="text-slate-500 font-semibold block uppercase text-[9px] tracking-wider mb-0.5">Template Status</span>
+                <span className={`font-bold text-sm ${excelTemplate ? 'text-emerald-400' : 'text-amber-500'}`}>
+                  {excelTemplate ? 'Ready to Append' : 'Missing File'}
+                </span>
+              </div>
+              <span className="text-[9px] text-slate-500 block leading-normal">
+                To specify a custom BR Number for any JD, type it directly next to that JD file above.
               </span>
             </div>
           </div>
