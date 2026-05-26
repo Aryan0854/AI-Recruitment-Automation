@@ -5,6 +5,26 @@ import { extractJdDetails } from '../../../lib/aiService';
 
 export const dynamic = 'force-dynamic';
 
+function getGradeFromExperience(expStr: string | undefined | null): string {
+  if (!expStr) return 'E2';
+  
+  // Extract numbers
+  const numbers = expStr.match(/\d+(\.\d+)?/g);
+  if (!numbers || numbers.length === 0) {
+    return 'E2';
+  }
+  
+  const years = parseFloat(numbers[0]);
+  if (years >= 0 && years < 1) return 'E0';
+  if (years >= 1 && years < 3) return 'E1';
+  if (years >= 3 && years < 6) return 'E2';
+  if (years >= 6 && years < 9) return 'E3';
+  if (years >= 9 && years < 12) return 'E4';
+  if (years >= 12) return 'E5/E6';
+  
+  return 'E2';
+}
+
 export async function POST(req: NextRequest) {
   try {
     console.log('[Serverless API] Received request to process JDs and Excel template...');
@@ -24,6 +44,7 @@ export async function POST(req: NextRequest) {
       console.error('[Serverless API] Failed to parse custom per-JD mapping payload, using default.');
     }
     let currentReqIdNum: number | null = null;
+    let sequentialSuffix = '';
 
     if (!jdsFiles || jdsFiles.length === 0) {
       return NextResponse.json({ detail: 'Missing Job Description files (.jds)' }, { status: 400 });
@@ -116,26 +137,39 @@ export async function POST(req: NextRequest) {
       let newAutoReqId = '';
       const customIdForThisFile = jdReqIdsMapping[filename] || '';
       
-      if (customIdForThisFile && /^\d{5}$/.test(customIdForThisFile)) {
-        const parsedCustom = parseInt(customIdForThisFile, 10);
-        newAutoReqId = `${parsedCustom}BR`;
+      if (customIdForThisFile) {
+        newAutoReqId = customIdForThisFile;
         console.log(`[Serverless API] Using file-specific custom Auto Req ID: ${newAutoReqId}`);
         // Seed the sequence for any subsequent empty fields
-        currentReqIdNum = parsedCustom + 1;
+        if (/^\d+$/.test(customIdForThisFile)) {
+          currentReqIdNum = parseInt(customIdForThisFile, 10) + 1;
+          sequentialSuffix = ''; // User entered purely digit custom ID without BR, so sequential ones don't have BR
+        } else {
+          currentReqIdNum = null;
+        }
       } else if (currentReqIdNum !== null) {
-        newAutoReqId = `${currentReqIdNum}BR`;
+        newAutoReqId = `${currentReqIdNum}${sequentialSuffix}`;
         currentReqIdNum++; // Increment for subsequent JDs in the batch
       } else {
         try {
           const idIndex = headers.indexOf('Auto req ID');
           if (idIndex !== -1) {
             const lastIdVal = templateRow.getCell(idIndex).value;
-            if (lastIdVal && typeof lastIdVal === 'string' && lastIdVal.endsWith('BR')) {
-              const numPart = parseInt(lastIdVal.replace('BR', ''), 10);
-              if (!isNaN(numPart)) {
-                newAutoReqId = `${numPart + 1}BR`;
-                // Initialize the counter so subsequent JDs conjoin from this point
-                currentReqIdNum = numPart + 2;
+            if (lastIdVal && typeof lastIdVal === 'string') {
+              if (lastIdVal.endsWith('BR')) {
+                const numPart = parseInt(lastIdVal.replace('BR', ''), 10);
+                if (!isNaN(numPart)) {
+                  newAutoReqId = `${numPart + 1}BR`;
+                  currentReqIdNum = numPart + 2;
+                  sequentialSuffix = 'BR';
+                }
+              } else {
+                const numPart = parseInt(lastIdVal, 10);
+                if (!isNaN(numPart)) {
+                  newAutoReqId = `${numPart + 1}`;
+                  currentReqIdNum = numPart + 2;
+                  sequentialSuffix = '';
+                }
               }
             }
           }
@@ -144,8 +178,9 @@ export async function POST(req: NextRequest) {
         }
 
         if (!newAutoReqId) {
-          newAutoReqId = `${Math.floor(40000 + Math.random() * 9999)}BR`;
-          currentReqIdNum = parseInt(newAutoReqId.replace('BR', ''), 10) + 1;
+          newAutoReqId = `${Math.floor(40000 + Math.random() * 9999)}`;
+          currentReqIdNum = parseInt(newAutoReqId, 10) + 1;
+          sequentialSuffix = '';
         }
       }
 
@@ -159,11 +194,15 @@ export async function POST(req: NextRequest) {
 
       const currentDateString = new Date().toISOString().split('T')[0];
 
+      // Map Grade according to experience using helper function
+      const calculatedGrade = getGradeFromExperience(jdDetails.experience);
+      console.log(`[Serverless API] Mapped experience "${jdDetails.experience}" to Grade: "${calculatedGrade}"`);
+
       // Map values to columns
       const fieldMapping: { [key: string]: any } = {
         'Auto req ID': newAutoReqId,
         'Current Req Status': 'Open',
-        'Grade': jdDetails.support_level === 'L3' ? 'E4' : 'E3',
+        'Grade': calculatedGrade,
         'Designation': jdDetails.job_title,
         'Recruiter': '',
         'Department Type': 'Technical',

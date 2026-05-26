@@ -95,10 +95,9 @@ export default function Home() {
   };
 
   const handleJdIdChange = (filename: string, val: string) => {
-    const cleanVal = val.replace(/\D/g, '').slice(0, 5);
     setJdCustomIds(prev => ({
       ...prev,
-      [filename]: cleanVal
+      [filename]: val
     }));
   };
 
@@ -276,7 +275,7 @@ export default function Home() {
                   </div>
                   
                   <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-                    <div className="relative rounded-xl overflow-hidden border border-slate-800 focus-within:border-violet-500/60 bg-slate-900/40 flex items-center pr-2.5 w-[140px]">
+                    <div className="relative rounded-xl overflow-hidden border border-slate-800 focus-within:border-violet-500/60 bg-slate-900/40 flex items-center w-[160px]">
                       <input
                         type="text"
                         placeholder="Auto Req ID"
@@ -284,11 +283,6 @@ export default function Home() {
                         onChange={(e) => handleJdIdChange(file.name, e.target.value)}
                         className="w-full bg-transparent px-3 py-1.5 text-[11px] font-mono font-bold text-slate-200 focus:outline-none placeholder-slate-600"
                       />
-                      {(jdCustomIds[file.name] || '') && (
-                        <span className="text-[9px] font-black text-violet-400 font-mono select-none shrink-0 animate-fadeIn">
-                          BR
-                        </span>
-                      )}
                     </div>
                     
                     <button 
@@ -478,7 +472,7 @@ export default function Home() {
             {/* Input box */}
             <div className="space-y-2">
               <label className="text-xs font-bold text-slate-400 block">
-                Enter 5-Digit Number (Auto Req ID):
+                Enter Auto Req ID:
               </label>
               
               <div className="relative rounded-2xl overflow-hidden border-2 border-slate-800 focus-within:border-violet-500/80 bg-slate-950 flex items-center pr-4">
@@ -488,21 +482,18 @@ export default function Home() {
                   placeholder="e.g. 45091"
                   value={wizardTempIds[jdFiles[wizardIndex]?.name] || ''}
                   onChange={(e) => {
-                    const val = e.target.value.replace(/\D/g, '').slice(0, 5);
+                    const val = e.target.value;
                     setWizardTempIds(prev => ({
                       ...prev,
                       [jdFiles[wizardIndex].name]: val
                     }));
                   }}
                   autoFocus
-                  className="w-full bg-transparent px-4 py-3 text-lg font-mono font-bold text-slate-100 focus:outline-none placeholder-slate-800 tracking-wider"
+                  className="w-full bg-transparent px-4 py-3 text-base font-mono font-bold text-slate-100 focus:outline-none placeholder-slate-800 tracking-wider"
                 />
-                <span className="text-xs font-black text-violet-400 font-mono select-none shrink-0 bg-violet-500/10 border border-violet-500/20 px-2.5 py-1 rounded-lg">
-                  BR
-                </span>
               </div>
               <p className="text-[10px] text-slate-500 leading-normal">
-                Provide a 5-digit number. Leave empty/skip to auto-generate sequentially.
+                Provide an Auto Req ID. Leave empty/skip to auto-generate sequentially.
               </p>
             </div>
 
