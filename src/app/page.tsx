@@ -22,6 +22,11 @@ export default function Home() {
   const [excelTemplate, setExcelTemplate] = useState<File | null>(null);
   const [jdCustomIds, setJdCustomIds] = useState<{ [filename: string]: string }>({});
 
+  // Wizard States for prompting per-JD Auto Req IDs
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
+  const [wizardIndex, setWizardIndex] = useState(0);
+  const [wizardTempIds, setWizardTempIds] = useState<{ [filename: string]: string }>({});
+
   // Processing States
   const [isProcessing, setIsProcessing] = useState(false);
   const [progressText, setProgressText] = useState('');
@@ -98,7 +103,7 @@ export default function Home() {
   };
 
   // Submit and process JDs + Excel
-  const generateUpdatedExcel = async () => {
+  const generateUpdatedExcel = async (customIdsOverride?: { [filename: string]: string }) => {
     if (jdFiles.length === 0) {
       setErrorMessage('Please upload at least one Job Description (.docx or .pdf) file.');
       return;
@@ -122,10 +127,11 @@ export default function Home() {
     formData.append('template', excelTemplate);
 
     // Conjoin JDs custom IDs mapping
+    const activeIds = customIdsOverride || jdCustomIds;
     const mapping: { [filename: string]: string } = {};
     jdFiles.forEach(file => {
-      if (jdCustomIds[file.name]) {
-        mapping[file.name] = jdCustomIds[file.name];
+      if (activeIds[file.name]) {
+        mapping[file.name] = activeIds[file.name];
       }
     });
     formData.append('jdReqIdsMapping', JSON.stringify(mapping));
@@ -160,6 +166,36 @@ export default function Home() {
       setErrorMessage(err.message || 'FastAPI parser server connection failed.');
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const handleGenerateClick = () => {
+    if (jdFiles.length === 0) {
+      setErrorMessage('Please upload at least one Job Description (.docx or .pdf) file.');
+      return;
+    }
+    if (!excelTemplate) {
+      setErrorMessage('Please upload one Excel template (.xlsx) file.');
+      return;
+    }
+
+    // "in case there are multiple it should ask for each one of them"
+    if (jdFiles.length > 1) {
+      setWizardTempIds({ ...jdCustomIds });
+      setWizardIndex(0);
+      setIsWizardOpen(true);
+    } else {
+      generateUpdatedExcel();
+    }
+  };
+
+  const handleWizardNext = () => {
+    if (wizardIndex < jdFiles.length - 1) {
+      setWizardIndex(prev => prev + 1);
+    } else {
+      setJdCustomIds({ ...wizardTempIds });
+      setIsWizardOpen(false);
+      generateUpdatedExcel(wizardTempIds);
     }
   };
 
@@ -322,7 +358,7 @@ export default function Home() {
           
           {!downloadUrl ? (
             <button 
-              onClick={generateUpdatedExcel}
+              onClick={handleGenerateClick}
               disabled={isProcessing || jdFiles.length === 0 || !excelTemplate}
               className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 disabled:from-slate-800 disabled:to-slate-800 text-slate-100 disabled:text-slate-500 font-bold py-4 rounded-2xl text-sm transition-all duration-300 shadow-lg shadow-violet-500/10 active:scale-95 flex items-center justify-center gap-2 cursor-pointer disabled:pointer-events-none"
             >
@@ -379,6 +415,136 @@ export default function Home() {
         </section>
 
       </div>
+
+      {/* Interactive Step-by-Step Auto Req ID Wizard Modal */}
+      {isWizardOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md transition-all duration-300">
+          <div className="relative w-full max-w-lg bg-slate-900 border border-slate-800/80 rounded-3xl p-6 md:p-8 shadow-2xl space-y-6 animate-scaleIn">
+            
+            {/* Background ambient accents for modal */}
+            <div className="absolute top-0 left-0 w-32 h-32 bg-violet-600/10 rounded-full blur-2xl pointer-events-none" />
+            <div className="absolute bottom-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
+
+            {/* Close button */}
+            <button 
+              onClick={() => setIsWizardOpen(false)}
+              className="absolute top-4 right-4 p-1.5 hover:bg-slate-800 text-slate-400 hover:text-slate-200 rounded-xl transition cursor-pointer"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            {/* Header & Step progress */}
+            <div className="space-y-2 relative">
+              <span className="text-[10px] font-bold text-violet-400 uppercase tracking-widest block">
+                Auto Req ID Wizard
+              </span>
+              <h3 className="text-xl font-bold text-slate-100 flex items-center gap-2 font-sans tracking-tight">
+                <span>Set ID for JD {wizardIndex + 1} of {jdFiles.length}</span>
+              </h3>
+              
+              {/* Progress visual bar */}
+              <div className="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden flex gap-0.5 mt-2">
+                {jdFiles.map((_, idx) => (
+                  <div 
+                    key={idx}
+                    className={`h-full flex-1 transition-all duration-300 ${
+                      idx === wizardIndex 
+                        ? 'bg-violet-500' 
+                        : idx < wizardIndex 
+                          ? 'bg-emerald-500' 
+                          : 'bg-slate-800'
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* JD File details */}
+            <div className="bg-slate-950/60 border border-slate-900/60 rounded-2xl p-4 flex items-center gap-3">
+              <div className="h-10 w-10 bg-violet-500/10 border border-violet-500/20 rounded-xl flex items-center justify-center shrink-0">
+                <FileText className="h-5 w-5 text-violet-400" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <span className="text-[10px] text-slate-500 font-semibold block uppercase tracking-wider">Current File</span>
+                <span className="text-xs font-bold text-slate-200 block truncate">
+                  {jdFiles[wizardIndex]?.name}
+                </span>
+                <span className="text-[9px] text-slate-600 font-mono">
+                  {jdFiles[wizardIndex] ? (jdFiles[wizardIndex].size / 1024).toFixed(0) : 0} KB
+                </span>
+              </div>
+            </div>
+
+            {/* Input box */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-400 block">
+                Enter 5-Digit Number (Auto Req ID):
+              </label>
+              
+              <div className="relative rounded-2xl overflow-hidden border-2 border-slate-800 focus-within:border-violet-500/80 bg-slate-950 flex items-center pr-4">
+                <input
+                  key={wizardIndex}
+                  type="text"
+                  placeholder="e.g. 45091"
+                  value={wizardTempIds[jdFiles[wizardIndex]?.name] || ''}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '').slice(0, 5);
+                    setWizardTempIds(prev => ({
+                      ...prev,
+                      [jdFiles[wizardIndex].name]: val
+                    }));
+                  }}
+                  autoFocus
+                  className="w-full bg-transparent px-4 py-3 text-lg font-mono font-bold text-slate-100 focus:outline-none placeholder-slate-800 tracking-wider"
+                />
+                <span className="text-xs font-black text-violet-400 font-mono select-none shrink-0 bg-violet-500/10 border border-violet-500/20 px-2.5 py-1 rounded-lg">
+                  BR
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-500 leading-normal">
+                Provide a 5-digit number. Leave empty/skip to auto-generate sequentially.
+              </p>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center gap-3 pt-2">
+              {wizardIndex > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setWizardIndex(prev => prev - 1)}
+                  className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-3 rounded-xl text-xs active:scale-95 transition cursor-pointer"
+                >
+                  Back
+                </button>
+              )}
+              
+              <button
+                type="button"
+                onClick={() => {
+                  setWizardTempIds(prev => {
+                    const copy = { ...prev };
+                    delete copy[jdFiles[wizardIndex].name];
+                    return copy;
+                  });
+                  handleWizardNext();
+                }}
+                className="flex-1 bg-slate-850 hover:bg-slate-800 text-slate-400 hover:text-slate-200 font-semibold py-3 rounded-xl text-xs active:scale-95 transition cursor-pointer"
+              >
+                Skip / Auto-gen
+              </button>
+
+              <button
+                type="button"
+                onClick={handleWizardNext}
+                className="flex-1 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-slate-100 font-bold py-3 rounded-xl text-xs active:scale-95 transition shadow-lg shadow-violet-500/10 cursor-pointer"
+              >
+                {wizardIndex === jdFiles.length - 1 ? 'Finish & Generate' : 'Next File'}
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
     </main>
   );
 }
