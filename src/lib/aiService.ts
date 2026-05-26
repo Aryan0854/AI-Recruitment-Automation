@@ -104,34 +104,6 @@ ${rawText}
  */
 const runMockFallback = (text: string, filename?: string): any => {
   const lowercaseText = text.toLowerCase();
-  const lowerFilename = filename ? filename.toLowerCase() : '';
-
-  if (lowerFilename.includes('application support enginer 1.docx') || lowerFilename === 'application support enginer 1.docx') {
-    console.log('[AI] Detected "Application support enginer 1.docx" template by filename. Returning mock JSON.');
-    return { ...MOCK_L1_L2_JD };
-  }
-  if (lowerFilename.includes('production support 1.docx') || lowerFilename === 'production support 1.docx') {
-    console.log('[AI] Detected "Production Support 1.docx" template by filename. Returning mock JSON.');
-    return { ...MOCK_L2_PRODUCTION_JD };
-  }
-
-  // Exact text-based signature match for the original exact mock templates
-  const isMockL1L2 = lowercaseText.includes('application support engineer (l1/l2)') && 
-                    lowercaseText.includes('rotational / 24x7') &&
-                    lowercaseText.includes('mandatory skills');
-                    
-  const isMockL2Prod = lowercaseText.includes('experienced l2 production support engineer') && 
-                       lowercaseText.includes('autosys') && 
-                       lowercaseText.includes('mandatory skills');
-
-  if (isMockL1L2) {
-    console.log('[AI] Detected exact "Application support enginer 1" template text. Returning mock JSON.');
-    return { ...MOCK_L1_L2_JD };
-  }
-  if (isMockL2Prod) {
-    console.log('[AI] Detected exact "Production Support 1" template text. Returning mock JSON.');
-    return { ...MOCK_L2_PRODUCTION_JD };
-  }
 
   console.log('[AI] Running dynamic keyword scanning fallback parser.');
   
