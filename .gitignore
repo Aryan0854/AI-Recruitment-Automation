@@ -1,0 +1,26 @@
+# Dependencies
+.venv/
+venv/
+node_modules/
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+.next/
+out/
+__pycache__/
+*.pyc
+
+# Local Environment Variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Output files & Logs
+updated_*.xlsx
+updated_test_*.xlsx
+database.json
+*.log
+.system_generated/
+.gemini/
